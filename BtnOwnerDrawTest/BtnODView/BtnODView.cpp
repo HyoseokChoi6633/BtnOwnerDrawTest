@@ -20,9 +20,6 @@
 // SpGdi.h 를 SSGdi.h 로 변경
 // DeleteObject(); 자동화 에서 시스템 객체는 삭제 못하게 하는 방법 추가
 
-// 2025-0725
-// dll 프로젝트에서 빌드해도 실행되게 속성 변경
-
 #include "framework.h"
 #include "BtnODView.h"
 
@@ -237,7 +234,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             //    break;
             //}
 
-            // 객체에 있는 OnCommand() 호출
             if (objKeyPad.OnCommand(wmId, HIWORD(wParam), &lpctPass)) {
                 if (lpctPass && _tcslen(lpctPass)) {
 
@@ -272,9 +268,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         //        return TRUE;
         //    }
         //}
-
-        // 키 페드의 버튼의 텍스트 위치를 다르게 보이기 위한
-        // OwnerDraw 방식 구현을 위한 OnDrawItem 메서드 호출
         objKeyPad.OnDrawItem(lParam);
         break;
     case WM_DESTROY:

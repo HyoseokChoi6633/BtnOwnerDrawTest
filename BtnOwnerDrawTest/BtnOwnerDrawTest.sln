@@ -4,6 +4,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 17.14.36221.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BtnODView", "BtnODView\BtnODView.vcxproj", "{8992B688-1B34-4368-AD7D-CE6AFC140A45}"
+	ProjectSection(ProjectDependencies) = postProject
+		{53E83726-AC75-4B20-BC4F-F3456DB65B0E} = {53E83726-AC75-4B20-BC4F-F3456DB65B0E}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CreaKeyPadDll", "CreaKeyPadDll\CreaKeyPadDll.vcxproj", "{53E83726-AC75-4B20-BC4F-F3456DB65B0E}"
 EndProject
