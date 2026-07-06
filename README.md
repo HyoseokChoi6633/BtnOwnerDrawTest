@@ -24,6 +24,9 @@ SpGdi.h 참조<br>
 // 2025-0714<br>
 키 페드 출력 dll 클래스로 작성 후<br>
 App 이 dll을 이용해 키 페드 출력을 하게 만들었음.<br>
+<br>
+// 2026-0706<br>
+프로젝트 속성 변경(dll 부터 컴파일 되게 종속성 설정)<br>
 <br><br>
 <img src="./images/KeyPadDemo.png" width="526" height="553" alt="실행 화면"><br>
 
