@@ -27,6 +27,19 @@ App 이 dll을 이용해 키 페드 출력을 하게 만들었음.<br>
 <br>
 // 2026-0706<br>
 프로젝트 속성 변경(dll 부터 컴파일 되게 종속성 설정)<br>
+// 2026-0913<br>
+9버튼 패드 기능 추가(특정 숫자 한개를 입력을 하지 않고 비번을 입력해야 함.)<br><br>
+9버튼을 한 이유는<br>
+어쩔때는 기존 비번 그대로(스킵할 버튼의 숫자가 아닐때)<br>
+<br>
+다를 때는(스킵할 버튼의 숫자가 비번에 있을 때)<br>
+숫자 자리 하나 이상의 생략으로<br>
+훔쳐보기가 어렵게 하고<br>
+<br>
+비번입력이 틀렸을때는<br>
+키 패드 배치를 재성성 하여 여러번 반복해도 같은 환경으로 비번이 뚫리기 어렵게 하기 위한 트릭임.<br>
 <br><br>
-<img src="./images/KeyPadDemo.png" width="526" height="553" alt="실행 화면"><br>
+<img src="./images/KeyPadDemo1.png" width="526" height="553" alt="실행 화면"><br>
+<br><br>
+<img src="./images/KeyPadDemo2.png" width="526" height="553" alt="실행 화면"><br>
 

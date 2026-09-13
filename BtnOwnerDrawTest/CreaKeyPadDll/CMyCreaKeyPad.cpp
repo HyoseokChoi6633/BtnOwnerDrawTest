@@ -1,15 +1,30 @@
 #include "pch.h"
 #include "CMyCreaKeyPad.h"
+#include <random>
+#include <algorithm>
 
 namespace CreaKeyPad_Library
 {
 	CreaKeyPad::CreaKeyPad() :
-		m_hWndStDispNum(nullptr),
-		m_hWndCmbPadType(nullptr),
-		m_hWndBtnPassShowOrHide(nullptr),
-		m_hWndBtnRomOrNum(nullptr),
-		m_hWndBtnKeyReloc(nullptr),
-		m_hWndBtnShowOrHidePad(nullptr)
+		m_hWndStDispNum(nullptr)
+		, m_hWndCmbPadType(nullptr)
+		, m_hWndBtnPassShowOrHide(nullptr)
+		, m_hWndBtnRomOrNum(nullptr)
+		, m_hWndBtnKeyReloc(nullptr)
+		, m_hWndBtnShowOrHidePad(nullptr)
+		, m_bShowPad(true)
+		, m_bShowPass(true)
+		, m_bShowRoman(true)
+		, m_iCols(3)
+		, m_iIDS_BTN_FIRST(0)
+		, m_iKeypadFontHeight(0)
+		, m_ptStart({ 0,0 })
+		, m_szBtnSize({ 0,0 })
+		, m_hWndBtnPadTypeSkipSpecialNumber(nullptr)
+		, m_iSkipSpecialNumber(-1)
+		, m_hWndEditPassNum(nullptr)
+		, m_hWndCmbNumDigit(nullptr)
+		, m_hWndBtnGenPass(nullptr)
 	{
 
 	}
@@ -22,7 +37,7 @@ namespace CreaKeyPad_Library
 		}
 	}
 
-	bool CreaKeyPad::CreateKeyPad(HWND hWndParent, HINSTANCE hInst, POINT ptStart, SIZE szBtnSize, int iIDS_BTN_FIRST, int iPadding, int iCols, bool bRomanNumber) {
+	bool CreaKeyPad::CreateKeyPad(HWND hWndParent, HINSTANCE hInst, POINT ptStart, SIZE szBtnSize, int iIDS_BTN_FIRST, int iPadding, int iCols, bool bRomanNumber, int iSkipSpecialNumber) {
 		int i;
 
 		m_bShowPass = true;
@@ -43,6 +58,8 @@ namespace CreaKeyPad_Library
 
 		m_iIDS_BTN_FIRST = iIDS_BTN_FIRST;
 		m_bShowRoman = bRomanNumber;
+
+		m_iSkipSpecialNumber = iSkipSpecialNumber;
 
 		m_hWndStDispNum = CreateWindow(_T("static"), nullptr, WS_CHILD | WS_VISIBLE | SS_LEFT, 0, 0, 0, 0, hWndParent, (HMENU)iIDS_BTN_FIRST + 13, hInst, nullptr);
 
@@ -141,6 +158,55 @@ namespace CreaKeyPad_Library
 				hWndParent, (HMENU)(iIDS_BTN_FIRST + i), hInst, nullptr);
 		}
 
+		i++;
+		if (!m_hWndBtnPadTypeSkipSpecialNumber) {
+			m_hWndBtnPadTypeSkipSpecialNumber = CreateWindow(_T("button"), GetStringBtnSkipNum().c_str(), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+				0, 0, 0, 0,
+				hWndParent, (HMENU)(iIDS_BTN_FIRST + i), hInst, nullptr);
+		}
+
+		i++;
+		if (!m_hWndEditPassNum) {
+			m_hWndEditPassNum = CreateWindow(_T("edit"), GenStrPassNum(4).c_str(), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_READONLY,
+				0, 0, 0, 0,
+				hWndParent, (HMENU)(iIDS_BTN_FIRST + i), hInst, nullptr);
+		}
+
+		i++;
+		// DropDown
+
+		if (!m_hWndCmbNumDigit) {
+			m_hWndCmbNumDigit = CreateWindow(
+				WC_COMBOBOX,              // 클래스 이름: 콤보 박스
+				nullptr,                     // 초기 텍스트
+				CBS_DROPDOWN | CBS_HASSTRINGS | WS_CHILD | WS_VISIBLE | WS_VSCROLL, // 스타일
+				0, 0,                  // 위치 (x, y)
+				0, 0,                 // 크기 (너비, 높이)
+				hWndParent,                    // 부모 윈도우 핸들
+				(HMENU)(iIDS_BTN_FIRST + i),                // 메뉴 ID
+				hInst,
+				nullptr);
+
+
+		}
+		else {
+			SendMessage(m_hWndCmbNumDigit, CB_RESETCONTENT, 0, 0);
+		}
+		
+		// 콤보 박스에 항목 추가
+		SendMessage(m_hWndCmbNumDigit, CB_ADDSTRING, 0, (LPARAM)_T("PassDigit 4"));
+		SendMessage(m_hWndCmbNumDigit, CB_ADDSTRING, 0, (LPARAM)_T("PassDigit 8"));
+		SendMessage(m_hWndCmbNumDigit, CB_ADDSTRING, 0, (LPARAM)_T("PassDigit 12"));
+
+		SendMessage(m_hWndCmbNumDigit, CB_SETCURSEL, (WPARAM)0, 0);
+
+		i++;
+		if (!m_hWndBtnGenPass) {
+			m_hWndBtnGenPass = CreateWindow(_T("button"), _T("Gen Pass"), WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+				0, 0, 0, 0,
+				hWndParent, (HMENU)(iIDS_BTN_FIRST + i), hInst, nullptr);
+		}
+		
 		KeypadArrangement();
 
 		SetKeypadFontHeight(0);
@@ -236,13 +302,36 @@ namespace CreaKeyPad_Library
 
 			bRetVal = true;
 		}
-		else if (iIDS == 12) {
+		else if (iIDS == 12) {		// 입력 버튼 클릭시 발생
 			if (!m_arObjKeys[iIDS].GetHWndBtn()) {
 				return false;
 			}
 
 			if (ppctMsg) {
-				*ppctMsg = m_strInputKey.c_str();
+				tstring strGenPassDigits = GetWindowTextString(m_hWndEditPassNum);
+				tstring strFiltered;
+
+				if (m_iSkipSpecialNumber > -1 && m_iSkipSpecialNumber < 10) {
+					TCHAR cChar = m_iSkipSpecialNumber + _T('0');
+					strFiltered = RemoveSpecificChar(strGenPassDigits, cChar);
+				}
+				else {
+					strFiltered = strGenPassDigits;
+				}
+
+				if (m_strInputKey.compare(strFiltered) == 0) {
+					*ppctMsg = _T("일치 합니다.");
+				}
+				else {
+					*ppctMsg = _T("비밀번호 입력이 잘못 되었습니다.");
+
+					if (m_iSkipSpecialNumber != -1) {
+						m_iSkipSpecialNumber = rand() % 10;
+						SetWindowText(m_hWndBtnPadTypeSkipSpecialNumber, GetStringBtnSkipNum().c_str());
+					}
+				}
+
+				RelocKeypad();
 			}
 
 			m_arObjKeys[iIDS].SetBtnTxtPos(0);
@@ -334,6 +423,50 @@ namespace CreaKeyPad_Library
 
 			bRetVal = true;
 		}
+		else if (iIDS == 18) {		// 10 패드 또는 9패드 버튼 토글 버튼
+			if (!m_hWndBtnPadTypeSkipSpecialNumber) {
+				return false;
+			}
+
+			if (m_iSkipSpecialNumber != -1) {
+				m_iSkipSpecialNumber = -1;
+			}
+			else {
+				m_iSkipSpecialNumber = rand() % 10;
+			}
+
+			SetWindowText(m_hWndBtnPadTypeSkipSpecialNumber, GetStringBtnSkipNum().c_str());
+
+			KeypadArrangement();
+
+			RelocKeypad();
+
+			bRetVal = true;
+		}
+		else if (iIDS == 21) {		// Pass Digit 생성 버튼 클릭
+			if (!m_hWndCmbNumDigit) {
+				return false;
+			}
+
+			iItemIdx = SendMessage(m_hWndCmbNumDigit, CB_GETCURSEL, 0, 0); // 선택된 항목 인덱스 얻기
+
+			if (iItemIdx != CB_ERR) {
+				TCHAR sztItemText[256] = { 0, };
+				SendMessage(m_hWndCmbNumDigit, CB_GETLBTEXT, iItemIdx, (LPARAM)sztItemText); // 선택된 항목 텍스트 얻기
+
+				tstring strDigitNum = GetLastTwoChars(sztItemText);
+				long lPassDigits;
+
+				if (SafeStringToInt(strDigitNum, lPassDigits)) {
+					SetWindowText(m_hWndEditPassNum, GenStrPassNum(lPassDigits).c_str());
+				}
+				else {
+					SetWindowText(m_hWndEditPassNum, _T(""));
+				}
+			}
+				
+			bRetVal = true;
+		}
 
 		return bRetVal;
 	}
@@ -341,7 +474,8 @@ namespace CreaKeyPad_Library
 	void CreaKeyPad::KeypadArrangement() {
 		RECT rtBtn;
 		int i;
-		const int iTitleHeightSize = 30;
+		int iPrevBottom;
+		const int iTitleHeightSize = 70;
 
 		UINT uiSWP_Style = 0;
 
@@ -360,7 +494,23 @@ namespace CreaKeyPad_Library
 
 		// 숫자 버튼 위치 지정
 		for (i = 0; i < 10; i++) {
+			if (i >= 9 && m_iCols != 5 && m_iSkipSpecialNumber != -1) {
+				SetMyWindowPos(m_arObjKeys[i].GetHWndBtn(), HWND_TOP, rtBtn.left, rtBtn.top, rtBtn.right - rtBtn.left, rtBtn.bottom - rtBtn.top, SWP_HIDEWINDOW);
+				continue;
+			}
+
 			SetMyWindowPos(m_arObjKeys[i].GetHWndBtn(), HWND_TOP, rtBtn.left, rtBtn.top, rtBtn.right - rtBtn.left, rtBtn.bottom - rtBtn.top, uiSWP_Style);
+
+			if (i >= 9 && m_iCols == 5 && m_iSkipSpecialNumber != -1) {
+				EnableWindow(m_arObjKeys[i].GetHWndBtn(), false);
+
+				m_arObjKeys[i].SetBtnTxt(_T(""));
+
+				m_arObjKeys[i].SetBtnTxtPos(0);
+			}
+			else {
+				EnableWindow(m_arObjKeys[i].GetHWndBtn(), true);
+			}
 
 			rtBtn.left += m_szBtnSize.cx;
 			rtBtn.right += m_szBtnSize.cx;
@@ -378,18 +528,27 @@ namespace CreaKeyPad_Library
 		switch (m_iCols) {
 		case 3:
 		case 4:
-			rtBtn.right += m_szBtnSize.cx;
-			break;
 		case 5:
-			rtBtn.left = m_ptStart.x;
-			rtBtn.right = rtBtn.left + m_szBtnSize.cx * 2;
+			rtBtn.right += m_szBtnSize.cx;
 			break;
 		default:
 			break;
 		}
 
-		SetMyWindowPos(m_arObjKeys[i].GetHWndBtn(), HWND_TOP, rtBtn.left, rtBtn.top, rtBtn.right - rtBtn.left, rtBtn.bottom - rtBtn.top, uiSWP_Style);
+		// 9버튼 패드 일때
+		if (m_iSkipSpecialNumber != -1) {
+			// 하나 삭제 버튼
+			switch (m_iCols) {
+			case 3:
+			case 4:
+				rtBtn.right += m_szBtnSize.cx;
+				break;
+			default:
+				break;
+			}
+		}
 
+		SetMyWindowPos(m_arObjKeys[i].GetHWndBtn(), HWND_TOP, rtBtn.left, rtBtn.top, rtBtn.right - rtBtn.left, rtBtn.bottom - rtBtn.top, uiSWP_Style);
 
 		i++;
 
@@ -474,6 +633,31 @@ namespace CreaKeyPad_Library
 
 		SetMyWindowPos(m_hWndBtnShowOrHidePad, HWND_TOP, rtBtn.left, rtBtn.top, rtBtn.right - rtBtn.left, rtBtn.bottom - rtBtn.top, SWP_NOZORDER);
 
+		rtBtn.left = m_ptStart.x;
+		rtBtn.top = m_ptStart.y + 30;
+		rtBtn.right = rtBtn.left + 160;
+		rtBtn.bottom = rtBtn.top + 25;
+
+		SetMyWindowPos(m_hWndBtnPadTypeSkipSpecialNumber, HWND_TOP, rtBtn.left, rtBtn.top, rtBtn.right - rtBtn.left, rtBtn.bottom - rtBtn.top, SWP_NOZORDER);
+
+		rtBtn.left += 165;
+		rtBtn.right = rtBtn.left + 110;
+
+		SetMyWindowPos(m_hWndEditPassNum, HWND_TOP, rtBtn.left, rtBtn.top, rtBtn.right - rtBtn.left, rtBtn.bottom - rtBtn.top, SWP_NOZORDER);
+
+		rtBtn.left += 115;
+		rtBtn.right = rtBtn.left + 110;
+		iPrevBottom = rtBtn.bottom;
+		rtBtn.bottom = rtBtn.top + 80;
+
+		SetMyWindowPos(m_hWndCmbNumDigit, HWND_TOP, rtBtn.left, rtBtn.top, rtBtn.right - rtBtn.left, rtBtn.bottom - rtBtn.top, SWP_NOZORDER);
+		
+		rtBtn.left += 115;
+		rtBtn.right = rtBtn.left + 70;
+		rtBtn.bottom = iPrevBottom;
+
+		SetMyWindowPos(m_hWndBtnGenPass, HWND_TOP, rtBtn.left, rtBtn.top, rtBtn.right - rtBtn.left, rtBtn.bottom - rtBtn.top, SWP_NOZORDER);
+		
 
 		if (GetParent(m_hWndCmbPadType)) {
 			InvalidateRect(GetParent(m_hWndCmbPadType), nullptr, true);
@@ -484,6 +668,118 @@ namespace CreaKeyPad_Library
 		if (hWnd) {		// 윈도우 헨들이 있을 때만 Flag 상황의 위치를 적용한다.
 			SetWindowPos(hWnd, hWndInsertAfter, iX, iY, iCX, iCY, uFlags);
 		}
+	}
+
+	tstring CreaKeyPad::GetStringBtnSkipNum()
+	{
+		int iResult = 0;
+		tstring strBtnSkipNumTitle;
+		strBtnSkipNumTitle.resize(1024); // 1024 크기 공간 미리 할당
+
+		if (m_iSkipSpecialNumber == -1) {
+			iResult = _stprintf_s(&strBtnSkipNumTitle[0], 1024, _T("%s"), m_lparctSkipSNPadBtnTitles[1]);
+		}
+		else {
+			iResult = _stprintf_s(&strBtnSkipNumTitle[0], 1024, m_lparctSkipSNPadBtnTitles[0], m_iSkipSpecialNumber);
+		}
+
+		if (iResult > 0) {
+			strBtnSkipNumTitle.resize(iResult); // 실제 출력된 문자열 길이로 재조정
+		}
+		else {
+			strBtnSkipNumTitle.clear();
+		}
+		
+		return strBtnSkipNumTitle;
+	}
+
+	tstring CreaKeyPad::GenStrPassNum(int iNumDigit)
+	{
+		if (iNumDigit <= 0) {
+			return _T("");
+		}
+
+		LPCTSTR digits = _T("0123456789");
+		std::random_device rd;
+		std::mt19937 gen(rd());
+		std::uniform_int_distribution<> dis(0, 9);
+
+		std::wstring password;
+		password.reserve(iNumDigit);
+
+		for (int i = 0; i < iNumDigit; ++i) {
+			wchar_t nextDigit;
+			// 직전 2개의 문자가 현재 뽑은 문자와 모두 같으면 다시 뽑기 (3연속 방지)
+			do {
+				nextDigit = digits[dis(gen)];
+			} while (i >= 2 && password[i - 1] == nextDigit && password[i - 2] == nextDigit);
+
+			password += nextDigit;
+		}
+
+		return password;
+	}
+
+	tstring CreaKeyPad::GetLastTwoChars(const tstring& str)
+	{
+		if (str.length() < 2) {
+			return _T(""); // 길이가 2보다 작으면 공백문자 반환
+		}
+
+		return str.substr(str.length() - 2);
+	}
+
+	bool CreaKeyPad::SafeStringToInt(const tstring& str, long& outVal)
+	{
+		if (str.empty()) {
+			return false;
+		}
+
+		TCHAR* pEnd = nullptr;
+		errno = 0; // 오버플로우 체크를 위해 초기화
+
+		// 10진수로 변환 시도
+		long val = _tcstol(str.c_str(), &pEnd, 10);
+
+		// 1. 시작부터 숫자가 아니었거나, 범위를 초과(오버플로우)한 경우
+		if (str.c_str() == pEnd || errno == ERANGE) {
+			return false;
+		}
+
+		// 2. 숫자가 아닌 문자가 중간에 섞여 있어서 끝까지 변환되지 못한 경우
+		// (pEnd가 문자열의 끝인 '\0'을 가리키지 않는다면 비숫자 문자가 섞여 있는 것임)
+		if (*pEnd != _T('\0')) {
+			return false;
+		}
+
+		outVal = val;
+		return true;
+	}
+
+	tstring CreaKeyPad::GetWindowTextString(HWND hWnd)
+	{
+		// 1. 윈도우 텍스트의 글자 수를 미리 파악합니다 (널 문자 제외)
+		int nLength = GetWindowTextLength(hWnd);
+		if (nLength <= 0) return _T("");
+
+		tstring strText;
+		// 2. 널 문자('\0') 공간(+1)을 포함하여 메모리를 미리 확보합니다.
+		strText.resize(nLength);
+
+		// 3. 내부 버퍼 주소를 전달하여 텍스트를 채웁니다.
+		int nCopied = GetWindowText(hWnd, &strText[0], nLength + 1);
+
+		// 4. 실제 복사된 글자 수에 맞게 크기를 최종 조정합니다.
+		strText.resize(nCopied);
+
+		return strText;
+	}
+
+	tstring CreaKeyPad::RemoveSpecificChar(tstring str, TCHAR targetChar)
+	{
+		// std::remove로 제거할 문자를 뒤로 몰아낸 뒤, erase로 실제 메모리를 잘라냅니다.
+		str.erase(std::remove(str.begin(), str.end(), targetChar), str.end());
+		return str;
 	}
 
 	void CreaKeyPad::SetKeypadFontHeight(int iFontHeight) {
@@ -586,6 +882,8 @@ namespace CreaKeyPad_Library
 
 	void CreaKeyPad::RelocKeypad() {
 		int i;
+		int j;
+
 		int iRndVal;
 		int iPushNum;
 
@@ -600,6 +898,7 @@ namespace CreaKeyPad_Library
 		}
 
 		i = 0;
+		j = m_iSkipSpecialNumber != -1 ? 1 : 0;
 
 		// 버튼 생성(0 ~ 9)
 		while (vecNumList.size()) {
@@ -608,6 +907,10 @@ namespace CreaKeyPad_Library
 			iPushNum = vecNumList[iRndVal];
 
 			vecNumList.erase(remove(vecNumList.begin(), vecNumList.end(), iPushNum), vecNumList.end());
+
+			if (m_iSkipSpecialNumber != -1 && m_iSkipSpecialNumber == iPushNum) {
+				continue;
+			}
 
 			strBtnTitle.resize(1024);
 			if (m_bShowRoman) {
@@ -619,13 +922,14 @@ namespace CreaKeyPad_Library
 
 			strBtnTitle.resize(iResult);
 
+			
 			m_arObjKeys[i].SetBtnTxt(strBtnTitle);
 
 			m_arObjKeys[i].SetBtnTxtPos(0);
 
 			i++;
 
-			if (i > 9) {
+			if (i > 9 - j) {
 				break;
 			}
 		}

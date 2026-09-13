@@ -188,7 +188,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         szBtnSize.cx = 110;
         szBtnSize.cy = 80;
 
-        if (!objKeyPad.CreateKeyPad(hWnd, hInst, ptStart, szBtnSize, IDS_BTNS_FIRST, 5, 3, true)) {
+        if (!objKeyPad.CreateKeyPad(hWnd, hInst, ptStart, szBtnSize, IDS_BTNS_FIRST, 5, 3, false, 4)) {
             MessageBox(hWnd, _T("키 페드 생성에 실패 했습니다."), _T("경고"), MB_OK);
 
             return false;

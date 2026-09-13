@@ -7,6 +7,12 @@
 // 이거 보안상 취약하다고 판단해 만들어 보았다.
 // 오너 드로우에 대한 지식만 있다면 쉽게 해석할 것이다.
 
+// 2026-0913_2334 9버튼 스킵 키패드
+// 숫자 10 개 중 하나를 무작위로 뺀 키패드를 구현해 본다.
+// 9버튼 비번 입력시 스킵된 숫자의 버튼은 누르지 않고 기존 비번 입력을 완성해야 한다.
+// 예 3 이 스킵된 버튼의 숫자이면
+// 1234 에서 124 를 입력해야 비번 입력이 성공된 것이 된다.
+
 // 해더 중복을 피하는 해더 선언
 #ifndef CMYCREAKEYPAD
 #define CMYCREAKEYPAD
@@ -32,7 +38,7 @@ namespace CreaKeyPad_Library
 		~CreaKeyPad();
 
 		// 키 페드 생성 메소드
-		bool CreateKeyPad(HWND hWndParent, HINSTANCE hInst, POINT ptStart, SIZE szBtnSize, int iIDS_BTN_FIRST, int iPadding, int iCols, bool bRomanNumber = false);
+		bool CreateKeyPad(HWND hWndParent, HINSTANCE hInst, POINT ptStart, SIZE szBtnSize, int iIDS_BTN_FIRST, int iPadding, int iCols, bool bRomanNumber = false, int iSkipSpecialNumber = -1);
 
 		// WM_DRAWITEM 시 사용되는 메소드
 		bool OnDrawItem(LPARAM lParam);
@@ -103,5 +109,28 @@ namespace CreaKeyPad_Library
 
 		// 스마트 포인터 적용한 폰트 핸들[DeleteObject() 호출을 스마트 포인터로 해결한다.]
 		UniqueHFont m_hFontStDisp;		// 키 페드의 비번표시 STATIC 에서 사용되는 폰트 핸들(글꼴을 변환하기 위해 필요)
+
+		// 9버튼 입력 키패드 입력 시스템
+		HWND m_hWndBtnPadTypeSkipSpecialNumber;		// 키 패드 중 특정 숫자 하나를 생략해 버튼을 배치하는 토글 버튼
+		int m_iSkipSpecialNumber;				// 위 버튼의 토글 시 사용되는 멤버 변수
+
+		LPCTSTR m_lparctSkipSNPadBtnTitles[2] = { _T("9버튼 패드(%d 미표시)"), _T("10버튼 일반 패드") };
+
+		tstring GetStringBtnSkipNum();			// 10 버튼 또는 9 버튼 조작 버튼의 토글 제목변경 메서드
+
+		HWND m_hWndEditPassNum;					// 자동으로 생성될 숫자 비번을 표시해 주는 Edit 컨트롤
+
+		tstring GenStrPassNum(int iNumDigit);
+
+		HWND m_hWndCmbNumDigit;					// 비밀번호 생성시 자리수 지정 콤보 컨트롤
+
+		HWND m_hWndBtnGenPass;					// 비밀번호를 생성한다.
+
+		tstring GetLastTwoChars(const tstring& str);
+		bool SafeStringToInt(const tstring& str, long& outVal);
+		tstring GetWindowTextString(HWND hWnd);
+		
+		// 특정 문자(예: '5')를 모두 제거하는 함수
+		tstring RemoveSpecificChar(tstring str, TCHAR targetChar);
 	};
 }
